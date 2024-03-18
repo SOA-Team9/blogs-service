@@ -34,10 +34,7 @@ func initDB() *gorm.DB {
 
 
 
-// func startServer(blogHandler *handler.BlogHandler,
-// 
-// 	ratingHandler *handler.RatingHandler) {
-func startServer(blogHandler *handler.BlogHandler,	commentHandler *handler.CommentHandler){
+func startServer(blogHandler *handler.BlogHandler,	commentHandler *handler.CommentHandler, ratingHandler *handler.RatingHandler){
 
 	router := mux.NewRouter().StrictSlash(true)
 
@@ -45,6 +42,8 @@ func startServer(blogHandler *handler.BlogHandler,	commentHandler *handler.Comme
 	router.HandleFunc("/blogs/{blogId}", blogHandler.GetBlog).Methods("GET")
 	router.HandleFunc("/blogs", blogHandler.Create).Methods("POST")
 	router.HandleFunc("/blogs/{blogId}/comments", commentHandler.Create).Methods("POST")
+	router.HandleFunc("/blogs/{blogId}/ratings", ratingHandler.Create).Methods("POST")
+	router.HandleFunc("/blogs/{blogId}/ratings/{ratingId}", ratingHandler.Delete).Methods("DELETE")
 
 	// router.HandleFunc("/add-equipment/{tourId}", tourHandler.AddEquipment).Methods("POST")
 	// router.HandleFunc("/get-tour/{tourId}", tourHandler.GetTourById).Methods("GET")
@@ -70,18 +69,9 @@ func main() {
 	commentService := &service.CommentService{CommentRepo: commentRepo}
 	commentHandler := &handler.CommentHandler{CommentService: commentService}
 
-	// checkpointRepo := &repo.CheckpointRepository{DatabaseConnection: database}
-	// checkpointService := &service.CheckpointService{CheckpointRepo: checkpointRepo}
-	// checkpointHandler := &handler.CheckpointHandler{CheckpointService: checkpointService}
+	ratingRepo := &repo.RatingRepository{DatabaseConnection: database}
+	ratingService := &service.RatingService{RatingRepo: ratingRepo}
+	ratingHandler := &handler.RatingHandler{RatingService: ratingService}
 
-	// tourRepo := &repo.TourRepository{DatabaseConnection: database}
-	// tourService := &service.TourService{TourRepo: tourRepo}
-	// tourHandler := &handler.TourHandler{TourService: tourService}
-
-
-
-
-	// startServer(tourHandler, checkpointHandler, equipmentHandler)
-	startServer(blogHandler, commentHandler)
-
+	startServer(blogHandler, commentHandler, ratingHandler)
 }

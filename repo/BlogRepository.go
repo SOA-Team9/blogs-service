@@ -1,9 +1,10 @@
 package repo
 
 import (
+	"fmt"
+
 	"blogs-service.xws.com/model"
 	"gorm.io/gorm"
-	"fmt"
 )
 
 type BlogRepository struct {
@@ -30,6 +31,17 @@ func (repo *BlogRepository) GetBlogs() []model.Blog {
 	var blogs []model.Blog
 	repo.DatabaseConnection.Preload("Comments").Preload("Ratings").Find(&blogs)
 	return blogs
+}
+
+func (repo *BlogRepository) UpdateBlogRating(id int, number int) error {
+	var blog model.Blog
+	repo.DatabaseConnection.Where("ID = ?", id).Find(&blog)
+	blog.Rating += int32(number)
+
+	if err := repo.DatabaseConnection.Save(&blog).Error; err != nil {
+        return err // Return error if save operation fails
+    }
+	return nil
 }
 
 // func (repo *BlogRepository) UpdateTour(tour *model.Tour) (*model.Tour, error) {
