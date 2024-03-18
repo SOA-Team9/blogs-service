@@ -43,7 +43,7 @@ func startServer(blogHandler *handler.BlogHandler,	commentHandler *handler.Comme
 	router.HandleFunc("/blogs", blogHandler.Create).Methods("POST")
 	router.HandleFunc("/blogs/{blogId}/comments", commentHandler.Create).Methods("POST")
 	router.HandleFunc("/blogs/{blogId}/ratings", ratingHandler.Create).Methods("POST")
-	router.HandleFunc("/blogs/{blogId}/ratings/{ratingId}", ratingHandler.Delete).Methods("DELETE")
+	router.HandleFunc("/blogs/{blogId}/ratings/{userId}", ratingHandler.Delete).Methods("DELETE")
 
 	// router.HandleFunc("/add-equipment/{tourId}", tourHandler.AddEquipment).Methods("POST")
 	// router.HandleFunc("/get-tour/{tourId}", tourHandler.GetTourById).Methods("GET")
