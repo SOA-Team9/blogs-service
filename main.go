@@ -35,15 +35,16 @@ func initDB() *gorm.DB {
 
 
 // func startServer(blogHandler *handler.BlogHandler,
-// 	commentHandler *handler.CommentHandler,
+// 
 // 	ratingHandler *handler.RatingHandler) {
-func startServer(blogHandler *handler.BlogHandler,){
+func startServer(blogHandler *handler.BlogHandler,	commentHandler *handler.CommentHandler){
 
 	router := mux.NewRouter().StrictSlash(true)
 
 	router.HandleFunc("/blogs", blogHandler.GetBlogs).Methods("GET")
 	router.HandleFunc("/blogs/{blogId}", blogHandler.GetBlog).Methods("GET")
 	router.HandleFunc("/blogs", blogHandler.Create).Methods("POST")
+	router.HandleFunc("/blogs/{blogId}/comments", commentHandler.Create).Methods("POST")
 
 	// router.HandleFunc("/add-equipment/{tourId}", tourHandler.AddEquipment).Methods("POST")
 	// router.HandleFunc("/get-tour/{tourId}", tourHandler.GetTourById).Methods("GET")
@@ -65,6 +66,10 @@ func main() {
 	blogService := &service.BlogService{BlogRepo: blogRepo}
 	blogHandler := &handler.BlogHandler{BlogService: blogService}
 
+	commentRepo := &repo.CommentRepository{DatabaseConnection: database}
+	commentService := &service.CommentService{CommentRepo: commentRepo}
+	commentHandler := &handler.CommentHandler{CommentService: commentService}
+
 	// checkpointRepo := &repo.CheckpointRepository{DatabaseConnection: database}
 	// checkpointService := &service.CheckpointService{CheckpointRepo: checkpointRepo}
 	// checkpointHandler := &handler.CheckpointHandler{CheckpointService: checkpointService}
@@ -77,6 +82,6 @@ func main() {
 
 
 	// startServer(tourHandler, checkpointHandler, equipmentHandler)
-	startServer(blogHandler)
+	startServer(blogHandler, commentHandler)
 
 }
