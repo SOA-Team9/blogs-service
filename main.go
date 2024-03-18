@@ -71,7 +71,7 @@ func main() {
 
 	ratingRepo := &repo.RatingRepository{DatabaseConnection: database}
 	ratingService := &service.RatingService{RatingRepo: ratingRepo}
-	ratingHandler := &handler.RatingHandler{RatingService: ratingService}
+	ratingHandler := &handler.RatingHandler{RatingService: ratingService, BlogService: blogService}
 
 	startServer(blogHandler, commentHandler, ratingHandler)
 }

@@ -44,6 +44,7 @@ func (handler *RatingHandler) Create(writer http.ResponseWriter, request *http.R
 
 	rating.BlogID = uint(blogID)
 
+
 	if handler.RatingService.FindByUserId(int(rating.UserId)) {
 		//update rating
 		err = handler.RatingService.Update(&rating)
@@ -55,11 +56,18 @@ func (handler *RatingHandler) Create(writer http.ResponseWriter, request *http.R
 		println("Rating updated! ")
 		writer.WriteHeader(http.StatusCreated)
 		writer.Header().Set("Content-Type", "application/json")
+			//update blog rating
+		var number int = 0
+		if rating.RatingType == model.DOWNVOTE{
+			number = -2
+		}else{
+			number = 2
+		}
+		handler.BlogService.UpdteBlogRating(blogID, number)
 		return
 	}
-
+	
 	//create new rating
-
 	err = handler.RatingService.Create(&rating)
 	if err != nil {
 		println("Error while adding a new rating")
