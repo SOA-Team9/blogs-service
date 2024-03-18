@@ -57,13 +57,13 @@ func (handler *RatingHandler) Create(writer http.ResponseWriter, request *http.R
 		writer.WriteHeader(http.StatusCreated)
 		writer.Header().Set("Content-Type", "application/json")
 			//update blog rating
-		var number int = 0
-		if rating.RatingType == model.DOWNVOTE{
-			number = -2
-		}else{
-			number = 2
-		}
-		handler.BlogService.UpdteBlogRating(blogID, number)
+		// var number int = 0
+		// if rating.RatingType == model.DOWNVOTE{
+		// 	number = -2
+		// }else{
+		// 	number = 2
+		// }
+		handler.BlogService.UpdteBlogRating(blogID)
 		return
 	}
 	
@@ -77,13 +77,13 @@ func (handler *RatingHandler) Create(writer http.ResponseWriter, request *http.R
 
 
 	//update blog rating
-	var number int = 0
-	if rating.RatingType == model.DOWNVOTE{
-		number = -1
-	}else{
-		number = 1
-	}
-	handler.BlogService.UpdteBlogRating(blogID, number)
+	// var number int = 0
+	// if rating.RatingType == model.DOWNVOTE{
+	// 	number = -1
+	// }else{
+	// 	number = 1
+	// }
+	handler.BlogService.UpdteBlogRating(blogID)
 
 	writer.WriteHeader(http.StatusCreated)
 	writer.Header().Set("Content-Type", "application/json")
@@ -93,6 +93,7 @@ func (handler *RatingHandler) Create(writer http.ResponseWriter, request *http.R
 func (handler *RatingHandler) Delete(writer http.ResponseWriter, request *http.Request) {
 	vars := mux.Vars(request)
 	userId := vars["userId"]
+	blogId := vars["blogId"]
 
 	
 	userID, err := strconv.Atoi(userId)
@@ -100,7 +101,15 @@ func (handler *RatingHandler) Delete(writer http.ResponseWriter, request *http.R
 		writer.WriteHeader(http.StatusBadRequest)
 		return
 	}
+	blogID, err := strconv.Atoi(blogId)
+	if err != nil {
+		writer.WriteHeader(http.StatusBadRequest)
+		return
+	}
 
+
+	
+	//Delete rating
 	err = handler.RatingService.Delete(userID)
 
 	if err != nil {
@@ -108,6 +117,9 @@ func (handler *RatingHandler) Delete(writer http.ResponseWriter, request *http.R
 		writer.WriteHeader(http.StatusExpectationFailed)
 		return
 	}
+
+	//Update rating on blog
+	handler.BlogService.UpdteBlogRating(blogID)
 	writer.WriteHeader(http.StatusCreated)
 	writer.Header().Set("Content-Type", "application/json")
 }

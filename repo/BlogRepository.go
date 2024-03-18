@@ -33,16 +33,41 @@ func (repo *BlogRepository) GetBlogs() []model.Blog {
 	return blogs
 }
 
-func (repo *BlogRepository) UpdateBlogRating(id int, number int) error {
+func (repo *BlogRepository) UpdateBlogRating(id int) error {
 	var blog model.Blog
-	repo.DatabaseConnection.Where("ID = ?", id).Find(&blog)
-	blog.Rating += int32(number)
+	repo.DatabaseConnection.Where("ID = ?", id).Preload("Ratings").Find(&blog)
+	println("AAA")
+	blog.Rating = 0
 
+	for _, rating := range blog.Ratings {
+        // Update blog based on the rating
+        // For example, you can calculate an average rating
+        // and update the blog's rating field
+        // Here, we simply sum up all rating values
+		println(rating.RatingType)
+        if rating.RatingType == model.DOWNVOTE{
+			blog.Rating--
+		}else{
+			blog.Rating++
+		}
+    }
+
+	
 	if err := repo.DatabaseConnection.Save(&blog).Error; err != nil {
         return err // Return error if save operation fails
     }
 	return nil
 }
+// func (repo *BlogRepository) UpdateBlogRating(id int, number int) error {
+// 	var blog model.Blog
+// 	repo.DatabaseConnection.Where("ID = ?", id).Find(&blog)
+// 	blog.Rating += int32(number)
+
+// 	if err := repo.DatabaseConnection.Save(&blog).Error; err != nil {
+//         return err // Return error if save operation fails
+//     }
+// 	return nil
+// }
 
 // func (repo *BlogRepository) UpdateTour(tour *model.Tour) (*model.Tour, error) {
 // 	tx := repo.DatabaseConnection.Begin()

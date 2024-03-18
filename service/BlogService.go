@@ -30,10 +30,14 @@ func (service *BlogService) GetBlogs() []model.Blog {
 	return blogs
 }
 
-func (service *BlogService) UpdteBlogRating(id int, number int) error {
-	blogs := service.BlogRepo.UpdateBlogRating(id, number)
+func (service *BlogService) UpdteBlogRating(id int) error {
+	blogs := service.BlogRepo.UpdateBlogRating(id)
 	return blogs
 }
+// func (service *BlogService) UpdteBlogRating(id int, number int) error {
+// 	blogs := service.BlogRepo.UpdateBlogRating(id, number)
+// 	return blogs
+// }
 
 // func (service *BlogService) Update(tourToUpdate *model.Tour) (*model.Tour, error) {
 // 	updatedTour, err := service.BlogRepo.UpdateTour(tourToUpdate)
