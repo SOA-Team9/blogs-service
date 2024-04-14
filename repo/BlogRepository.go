@@ -3,59 +3,161 @@ package repo
 import (
 	"fmt"
 
+	"context"
+	"log"
+	"os"
+	"time"
+
 	"blogs-service.xws.com/model"
-	"gorm.io/gorm"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 type BlogRepository struct {
-	DatabaseConnection *gorm.DB
+	cli    *mongo.Client
+	logger *log.Logger
 }
 
-func (repo *BlogRepository) CreateBlog(blog *model.Blog) error {
-	dbResult := repo.DatabaseConnection.Create(blog)
-	if dbResult.Error != nil {
-		panic(dbResult.Error)
+
+func NewBlogRepository(client *mongo.Client, logger *log.Logger) *BlogRepository {
+    return &BlogRepository{
+        cli:    client,
+        logger: logger,
+    }
+}
+
+func New(ctx context.Context, logger *log.Logger) (*BlogRepository, error) {
+	dburi := os.Getenv("MONGO_DB_URI")
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(dburi))
+	if err != nil {
+		return nil, err
 	}
-	println("Rows affected: ", dbResult.RowsAffected)
+
+	err = client.Connect(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &BlogRepository{
+		cli:    client,
+		logger: logger,
+	}, nil
+}
+
+// Disconnect from database
+func (pr *BlogRepository) Disconnect(ctx context.Context) error {
+	err := pr.cli.Disconnect(ctx)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func (repo *BlogRepository) GetBlog(id int32) []model.Blog {
-	var blog []model.Blog
-	repo.DatabaseConnection.Where("ID = ?", id).Preload("Comments").Preload("Ratings").Find(&blog)
-	fmt.Println(id)
-	return blog
+// Check database connection
+func (pr *BlogRepository) Ping() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Check connection -> if no error, connection is established
+	err := pr.cli.Ping(ctx, readpref.Primary())
+	if err != nil {
+		pr.logger.Println(err)
+	}
+
+	// Print available databases
+	databases, err := pr.cli.ListDatabaseNames(ctx, bson.M{})
+	if err != nil {
+		pr.logger.Println(err)
+	}
+	fmt.Println(databases)
 }
 
-func (repo *BlogRepository) GetBlogs() []model.Blog {
-	var blogs []model.Blog
-	repo.DatabaseConnection.Preload("Comments").Preload("Ratings").Find(&blogs)
-	return blogs
+func (pr *BlogRepository) CreateBlog(blog *model.Blog) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	blogsCollection := pr.getBlogsCollection()
+
+	result, err := blogsCollection.InsertOne(ctx, &blog)
+	if err != nil {
+		pr.logger.Println(err)
+		return err
+	}
+	pr.logger.Printf("Documents ID: %v\n", result.InsertedID)
+	return nil
 }
+
+func (pr *BlogRepository) getBlogsCollection() *mongo.Collection {
+	blogDatabase := pr.cli.Database("blogs")
+	blogsCollection := blogDatabase.Collection("blogs")
+	return blogsCollection
+}
+
+
+func (pr *BlogRepository) GetBlog(id string) (*model.Blog, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	blogsCollection := pr.getBlogsCollection()
+
+	var blog model.Blog
+	objID, _ := primitive.ObjectIDFromHex(id)
+	err := blogsCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&blog)
+	if err != nil {
+		pr.logger.Println(err)
+		return nil, err
+	}
+	return &blog, nil
+}
+
+func (pr *BlogRepository) GetBlogs() (model.Blogs, error) {
+	// Initialise context (after 5 seconds timeout, abort operation)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	blogsCollection := pr.getBlogsCollection()
+
+	var blogs []*model.Blog
+	blogsCursor, err := blogsCollection.Find(ctx, bson.M{})
+	if err != nil {
+		pr.logger.Println(err)
+		return nil, err
+	}
+	if err = blogsCursor.All(ctx, &blogs); err != nil {
+		pr.logger.Println(err)
+		return nil, err
+	}
+	return blogs, nil
+}
+
 
 func (repo *BlogRepository) UpdateBlogRating(id int) error {
-	var blog model.Blog
-	repo.DatabaseConnection.Where("ID = ?", id).Preload("Ratings").Find(&blog)
-	println("AAA")
-	blog.Rating = 0
+	// var blog model.Blog
+	// repo.DatabaseConnection.Where("ID = ?", id).Preload("Ratings").Find(&blog)
+	// println("AAA")
+	// blog.Rating = 0
 
-	for _, rating := range blog.Ratings {
-        // Update blog based on the rating
-        // For example, you can calculate an average rating
-        // and update the blog's rating field
-        // Here, we simply sum up all rating values
-		println(rating.RatingType)
-        if rating.RatingType == model.DOWNVOTE{
-			blog.Rating--
-		}else{
-			blog.Rating++
-		}
-    }
+	// for _, rating := range blog.Ratings {
+    //     // Update blog based on the rating
+    //     // For example, you can calculate an average rating
+    //     // and update the blog's rating field
+    //     // Here, we simply sum up all rating values
+	// 	println(rating.RatingType)
+    //     if rating.RatingType == model.DOWNVOTE{
+	// 		blog.Rating--
+	// 	}else{
+	// 		blog.Rating++
+	// 	}
+    // }
 
 	
-	if err := repo.DatabaseConnection.Save(&blog).Error; err != nil {
-        return err // Return error if save operation fails
-    }
+	// if err := repo.DatabaseConnection.Save(&blog).Error; err != nil {
+    //     return err // Return error if save operation fails
+    // }
 	return nil
 }
 // func (repo *BlogRepository) UpdateBlogRating(id int, number int) error {
@@ -67,74 +169,4 @@ func (repo *BlogRepository) UpdateBlogRating(id int) error {
 //         return err // Return error if save operation fails
 //     }
 // 	return nil
-// }
-
-// func (repo *BlogRepository) UpdateTour(tour *model.Tour) (*model.Tour, error) {
-// 	tx := repo.DatabaseConnection.Begin()
-
-// 	if err := tx.Save(tour).Error; err != nil {
-// 		tx.Rollback()
-// 		return nil, err
-// 	}
-
-// 	var foundTour model.Tour
-// 	if err := tx.Preload("TourEquipment").Find(&foundTour).Error; err != nil {
-// 		tx.Rollback()
-// 		return nil, err
-// 	}
-
-// 	var existingEquipmentIds []int32
-// 	for _, equipment := range foundTour.TourEquipment {
-// 		existingEquipmentIds = append(existingEquipmentIds, equipment.Id)
-// 	}
-
-// 	var newEquipmentIds []int32
-// 	for _, equipment := range tour.TourEquipment {
-// 		newEquipmentIds = append(newEquipmentIds, equipment.Id)
-// 	}
-
-// 	var removedEquipmentIds []int32
-// 	for _, existingEquipmentId := range existingEquipmentIds {
-// 		found := false
-// 		for _, newEquipmentId := range newEquipmentIds {
-// 			if existingEquipmentId == newEquipmentId {
-// 				found = true
-// 				break
-// 			}
-// 		}
-// 		if !found {
-// 			removedEquipmentIds = append(removedEquipmentIds, existingEquipmentId)
-// 		}
-// 	}
-
-// 	if len(removedEquipmentIds) > 0 {
-// 		tx.Where("tour_id = ? AND equipment_id IN (?)", tour.Id, removedEquipmentIds).Delete(&model.TourEquipment{})
-// 	}
-
-// 	tx.Commit()
-
-// 	return tour, nil
-// }
-
-// func (repo *BlogRepository) AddEquipment(tourId int32, newEquipment []model.Equipment) error {
-
-// 	var tour model.Tour
-// 	if err := repo.DatabaseConnection.Where("id = ?", tourId).First(&tour).Error; err != nil {
-// 		return err
-// 	}
-// 	tour.TourEquipment = append(tour.TourEquipment, newEquipment...)
-
-// 	if err := repo.DatabaseConnection.Save(&tour).Error; err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
-
-// func (repo *BlogRepository) GetTourById(tourId int32) (*model.Tour, error) {
-// 	var tour model.Tour
-// 	if err := repo.DatabaseConnection.Where("id = ?", tourId).First(&tour).Error; err != nil {
-// 		return nil, err
-// 	}
-// 	return &tour, nil
 // }
