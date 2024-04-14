@@ -2,12 +2,14 @@ package service
 
 import (
 	"fmt"
+	"log"
 
 	"blogs-service.xws.com/model"
 	"blogs-service.xws.com/repo"
 )
 
 type BlogService struct {
+	logger *log.Logger
 	BlogRepo *repo.BlogRepository
 }
 
@@ -20,14 +22,20 @@ func (service *BlogService) Create(blog *model.Blog) error {
 	return nil
 }
 
-func (service *BlogService) GetBlog(id int32) []model.Blog {
-	blog := service.BlogRepo.GetBlog(id)
-	return blog
+func (service *BlogService) GetBlog(id string) (*model.Blog, error) {
+	blog, err := service.BlogRepo.GetBlog(id)
+	if err != nil {
+		service.logger.Print("Database exception: ", err)
+	}
+	return blog, err
 }
 
-func (service *BlogService) GetBlogs() []model.Blog {
-	blogs := service.BlogRepo.GetBlogs()
-	return blogs
+func (service *BlogService) GetBlogs() (model.Blogs, error ){
+	blogs, err:= service.BlogRepo.GetBlogs()
+	if err != nil {
+		service.logger.Print("Database exception: ", err)
+	}
+	return blogs, err
 }
 
 func (service *BlogService) UpdteBlogRating(id int) error {

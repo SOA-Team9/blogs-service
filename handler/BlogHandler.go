@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"encoding/json"
-	"fmt"
+	"log"
 	"net/http"
-	"strconv"
 
 	"blogs-service.xws.com/model"
 	"blogs-service.xws.com/service"
@@ -12,55 +10,66 @@ import (
 )
 
 type BlogHandler struct {
+	logger *log.Logger
 	BlogService *service.BlogService
 }
 
-func (handler *BlogHandler) Create(writer http.ResponseWriter, request *http.Request) {
-	var blog model.Blog
-	err := json.NewDecoder(request.Body).Decode(&blog)
-	if err != nil {
-		println("error parsing json: ", err)
-		writer.WriteHeader(http.StatusBadRequest)
-		return
-	}
+type KeyProduct struct{}
+
+func NewBlogsHandler(l *log.Logger, s *service.BlogService) *BlogHandler {
+	return &BlogHandler{l, s}
+}
+
+func (handler *BlogHandler) Create(rw http.ResponseWriter, h *http.Request) {
+	blog := h.Context().Value(KeyProduct{}).(*model.Blog)
 	blog.Status = model.DRAFT
 	blog.Rating = 0
-	err = handler.BlogService.Create(&blog)
-	if err != nil {
-		println("Error while creating a new blog")
-		writer.WriteHeader(http.StatusExpectationFailed)
-		return
-	}
-	writer.WriteHeader(http.StatusCreated)
-	writer.Header().Set("Content-Type", "application/json")
+	handler.BlogService.Create(blog)
+	rw.WriteHeader(http.StatusCreated)
 }
 
-func (handler *BlogHandler) GetBlog(writer http.ResponseWriter, request *http.Request) {
-	vars := mux.Vars(request)
-	blogId := vars["blogId"]
-	
-	fmt.Println(blogId)
+func (handler *BlogHandler) GetBlog(rw http.ResponseWriter, h *http.Request) {
 
-	if blogId == "" {
-		writer.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	blogID, err := strconv.Atoi(blogId)
+
+	vars := mux.Vars(h)
+	id := vars["id"]
+
+	patient, err := handler.BlogService.GetBlog(id)
 	if err != nil {
-		writer.WriteHeader(http.StatusBadRequest)
+		handler.logger.Print("Database exception: ", err)
+	}
+
+	if patient == nil {
+		http.Error(rw, "Patient with given id not found", http.StatusNotFound)
+		handler.logger.Printf("Patient with id: '%s' not found", id)
 		return
 	}
-	fmt.Println(blogID)
 
-	blogs := handler.BlogService.GetBlog(int32(blogID))
-	json.NewEncoder(writer).Encode(blogs)
-	writer.Header().Set("Content-Type", "application/json")
+	err = patient.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		handler.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
 }
 
-func (handler *BlogHandler) GetBlogs(writer http.ResponseWriter, request *http.Request) {
-	blog := handler.BlogService.GetBlogs()
-	json.NewEncoder(writer).Encode(blog)
-	writer.Header().Set("Content-Type", "application/json")
+func (handler *BlogHandler) GetBlogs(rw http.ResponseWriter, h *http.Request) {
+
+	blogs, err := handler.BlogService.GetBlogs()
+	if err != nil {
+		handler.logger.Print("Database exception: ", err)
+	}
+
+	if blogs == nil {
+		return
+	}
+
+	err = blogs.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		handler.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
 }
 
 // func (handler *BlogHandler) Update(writer http.ResponseWriter, request *http.Request) {
