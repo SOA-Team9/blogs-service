@@ -1,16 +1,22 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 
 	"blogs-service.xws.com/model"
 	"blogs-service.xws.com/repo"
 )
 
 type BlogService struct {
-	logger *log.Logger
+	logger   *log.Logger
 	BlogRepo *repo.BlogRepository
+}
+
+func NewBlogService(l *log.Logger, r *repo.BlogRepository) *BlogService {
+	return &BlogService{l, r}
 }
 
 func (service *BlogService) Create(blog *model.Blog) error {
@@ -30,8 +36,8 @@ func (service *BlogService) GetBlog(id string) (*model.Blog, error) {
 	return blog, err
 }
 
-func (service *BlogService) GetBlogs() (model.Blogs, error ){
-	blogs, err:= service.BlogRepo.GetBlogs()
+func (service *BlogService) GetBlogs() (model.Blogs, error) {
+	blogs, err := service.BlogRepo.GetBlogs()
 	if err != nil {
 		service.logger.Print("Database exception: ", err)
 	}
@@ -42,6 +48,44 @@ func (service *BlogService) UpdteBlogRating(id int) error {
 	blogs := service.BlogRepo.UpdateBlogRating(id)
 	return blogs
 }
+
+func (service *BlogService) GetBlogsFollowing(id int) (model.Blogs, error) {
+	url := fmt.Sprintf("http://followers:8086/user/following-ids/%d", id)
+	resp, err := http.Get(url)
+	if err != nil {
+		service.logger.Fatal("Failed to get recommendation from the microservice "+err.Error(), http.StatusInternalServerError)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var userIds []int
+	err = json.NewDecoder(resp.Body).Decode(&userIds)
+
+	if err != nil {
+		service.logger.Fatal("Failed to decode users IDs", http.StatusInternalServerError)
+		return nil, err
+	}
+
+	log.Println("Recommendation IDs: ", userIds)
+
+	blogs, err := service.BlogRepo.GetBlogs()
+	if err != nil {
+		return nil, err
+	}
+
+	var filteredBlogs model.Blogs
+	for _, blog := range blogs {
+		for _, userId := range userIds {
+			if blog.AuthorId == int32(userId) {
+				filteredBlogs = append(filteredBlogs, blog)
+				break
+			}
+		}
+	}
+
+	return filteredBlogs, nil
+}
+
 // func (service *BlogService) UpdteBlogRating(id int, number int) error {
 // 	blogs := service.BlogRepo.UpdateBlogRating(id, number)
 // 	return blogs

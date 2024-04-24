@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"strconv"
 
 	"blogs-service.xws.com/model"
 	"blogs-service.xws.com/service"
@@ -10,7 +12,7 @@ import (
 )
 
 type BlogHandler struct {
-	logger *log.Logger
+	logger      *log.Logger
 	BlogService *service.BlogService
 }
 
@@ -30,9 +32,8 @@ func (handler *BlogHandler) Create(rw http.ResponseWriter, h *http.Request) {
 
 func (handler *BlogHandler) GetBlog(rw http.ResponseWriter, h *http.Request) {
 
-
 	vars := mux.Vars(h)
-	id := vars["id"]
+	id := vars["blogId"]
 
 	patient, err := handler.BlogService.GetBlog(id)
 	if err != nil {
@@ -40,8 +41,8 @@ func (handler *BlogHandler) GetBlog(rw http.ResponseWriter, h *http.Request) {
 	}
 
 	if patient == nil {
-		http.Error(rw, "Patient with given id not found", http.StatusNotFound)
-		handler.logger.Printf("Patient with id: '%s' not found", id)
+		http.Error(rw, "Blog with given id not found", http.StatusNotFound)
+		handler.logger.Printf("Blog with id: '%s' not found", id)
 		return
 	}
 
@@ -70,6 +71,55 @@ func (handler *BlogHandler) GetBlogs(rw http.ResponseWriter, h *http.Request) {
 		handler.logger.Fatal("Unable to convert to json :", err)
 		return
 	}
+}
+
+func (handler *BlogHandler) GetBlogsFollowing(rw http.ResponseWriter, h *http.Request) {
+
+	vars := mux.Vars(h)
+	id := vars["user_id"]
+	idInt, err := strconv.Atoi(id)
+	blogs, err := handler.BlogService.GetBlogsFollowing(idInt)
+	if err != nil {
+		handler.logger.Print("Database exception: ", err)
+	}
+
+	if blogs == nil {
+		http.Error(rw, "Blog with given id not found", http.StatusNotFound)
+		handler.logger.Printf("Blog with id: '%s' not found", id)
+		return
+	}
+
+	err = blogs.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		handler.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
+func (m *BlogHandler) MiddlewareContentTypeSet(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, h *http.Request) {
+		m.logger.Println("Method [", h.Method, "] - Hit path :", h.URL.Path)
+
+		rw.Header().Add("Content-Type", "application/json")
+
+		next.ServeHTTP(rw, h)
+	})
+}
+
+func (f *BlogHandler) MiddlewareBlogDeserialization(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, h *http.Request) {
+		blog := &model.Blog{}
+		err := blog.FromJSON(h.Body)
+		if err != nil {
+			http.Error(rw, "Unable to decode json", http.StatusBadRequest)
+			f.logger.Fatal(err)
+			return
+		}
+		ctx := context.WithValue(h.Context(), KeyProduct{}, blog)
+		h = h.WithContext(ctx)
+		next.ServeHTTP(rw, h)
+	})
 }
 
 // func (handler *BlogHandler) Update(writer http.ResponseWriter, request *http.Request) {

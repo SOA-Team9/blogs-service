@@ -4,8 +4,11 @@ go 1.22.1
 
 require go.mongodb.org/mongo-driver v1.15.0
 
+require github.com/felixge/httpsnoop v1.0.3 // indirect
+
 require (
 	github.com/golang/snappy v0.0.1 // indirect
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect

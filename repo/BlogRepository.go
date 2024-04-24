@@ -5,7 +5,6 @@ import (
 
 	"context"
 	"log"
-	"os"
 	"time"
 
 	"blogs-service.xws.com/model"
@@ -22,16 +21,15 @@ type BlogRepository struct {
 	logger *log.Logger
 }
 
-
 func NewBlogRepository(client *mongo.Client, logger *log.Logger) *BlogRepository {
-    return &BlogRepository{
-        cli:    client,
-        logger: logger,
-    }
+	return &BlogRepository{
+		cli:    client,
+		logger: logger,
+	}
 }
 
 func New(ctx context.Context, logger *log.Logger) (*BlogRepository, error) {
-	dburi := os.Getenv("MONGO_DB_URI")
+	dburi := "mongodb://root:pass@blog-db:27017/"
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(dburi))
 	if err != nil {
@@ -97,16 +95,22 @@ func (pr *BlogRepository) getBlogsCollection() *mongo.Collection {
 	return blogsCollection
 }
 
-
 func (pr *BlogRepository) GetBlog(id string) (*model.Blog, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	blogsCollection := pr.getBlogsCollection()
 
+	objectID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		pr.logger.Println("Invalid ObjectId:", err)
+		return nil, err
+	}
+
+	pr.logger.Println("ObjectID:", objectID)
+
 	var blog model.Blog
-	objID, _ := primitive.ObjectIDFromHex(id)
-	err := blogsCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&blog)
+	err = blogsCollection.FindOne(ctx, bson.M{"_id": objectID}).Decode(&blog)
 	if err != nil {
 		pr.logger.Println(err)
 		return nil, err
@@ -116,12 +120,12 @@ func (pr *BlogRepository) GetBlog(id string) (*model.Blog, error) {
 
 func (pr *BlogRepository) GetBlogs() (model.Blogs, error) {
 	// Initialise context (after 5 seconds timeout, abort operation)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	blogsCollection := pr.getBlogsCollection()
 
-	var blogs []*model.Blog
+	var blogs model.Blogs
 	blogsCursor, err := blogsCollection.Find(ctx, bson.M{})
 	if err != nil {
 		pr.logger.Println(err)
@@ -134,7 +138,6 @@ func (pr *BlogRepository) GetBlogs() (model.Blogs, error) {
 	return blogs, nil
 }
 
-
 func (repo *BlogRepository) UpdateBlogRating(id int) error {
 	// var blog model.Blog
 	// repo.DatabaseConnection.Where("ID = ?", id).Preload("Ratings").Find(&blog)
@@ -142,24 +145,24 @@ func (repo *BlogRepository) UpdateBlogRating(id int) error {
 	// blog.Rating = 0
 
 	// for _, rating := range blog.Ratings {
-    //     // Update blog based on the rating
-    //     // For example, you can calculate an average rating
-    //     // and update the blog's rating field
-    //     // Here, we simply sum up all rating values
+	//     // Update blog based on the rating
+	//     // For example, you can calculate an average rating
+	//     // and update the blog's rating field
+	//     // Here, we simply sum up all rating values
 	// 	println(rating.RatingType)
-    //     if rating.RatingType == model.DOWNVOTE{
+	//     if rating.RatingType == model.DOWNVOTE{
 	// 		blog.Rating--
 	// 	}else{
 	// 		blog.Rating++
 	// 	}
-    // }
+	// }
 
-	
 	// if err := repo.DatabaseConnection.Save(&blog).Error; err != nil {
-    //     return err // Return error if save operation fails
-    // }
+	//     return err // Return error if save operation fails
+	// }
 	return nil
 }
+
 // func (repo *BlogRepository) UpdateBlogRating(id int, number int) error {
 // 	var blog model.Blog
 // 	repo.DatabaseConnection.Where("ID = ?", id).Find(&blog)
