@@ -84,8 +84,8 @@ func (handler *BlogHandler) GetBlogsFollowing(rw http.ResponseWriter, h *http.Re
 	}
 
 	if blogs == nil {
-		http.Error(rw, "Blog with given id not found", http.StatusNotFound)
-		handler.logger.Printf("Blog with id: '%s' not found", id)
+		http.Error(rw, "Blogs not found", http.StatusNotFound)
+		handler.logger.Printf("Blogs not found")
 		return
 	}
 
